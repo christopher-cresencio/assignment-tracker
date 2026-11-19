@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Assignment Tracker</title>
+    <style>
+        /* --- STYLING --- */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f7f6; color: #333; }
+        h1 { text-align: center; color: #2c3e50; }
+        
+        .form-container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .form-container input, .form-container select, .form-container button { 
+            padding: 12px; margin: 8px 0; width: 100%; box-sizing: border-box; 
+            border: 1px solid #ddd; border-radius: 6px; font-size: 16px; 
+        }
+        .form-container button { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .form-container button:hover { background: #218838; }
+        
+        .filters { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
+        .filters button { padding: 10px 20px; border: none; background: #007bff; color: white; border-radius: 20px; cursor: pointer; transition: 0.2s; }
+        .filters button.active { background: #0056b3; transform: scale(1.05); }
+        .filters button:hover { opacity: 0.9; }
+
+        .task-list { list-style: none; padding: 0; }
+        .task-item { 
+            background: #fff; padding: 15px; margin-bottom: 12px; border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; 
+            align-items: center; border-left: 6px solid #007bff; transition: 0.3s;
+        }
+        .task-item.done { border-left-color: #28a745; opacity: 0.6; }
+        .task-item.done .task-info h3 { text-decoration: line-through; }
+        .task-item.overdue { border-left-color: #dc3545; background: #fff5f5; }
+        
+        .task-info h3 { margin: 0 0 5px 0; font-size: 18px; }
+        .task-info p { margin: 0; font-size: 14px; color: #666; }
+        .badge { font-size: 12px; background: #e9ecef; padding: 3px 8px; border-radius: 4px; margin-left: 8px; text-transform: uppercase;}
+        
+        .task-actions button { padding: 8px 12px; margin-left: 8px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-complete { background: #ffc107; color: #333; }
+        .btn-delete { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>📚 Student Assignment Tracker</h1>
+    
+    <!-- Input Form -->
+    <div class="form-container">
+        <input type="text" id="taskTitle" placeholder="e.g., Linear Algebra Problem Set 3">
+        <select id="taskType">
+            <option value="assignment">Assignment</option>
+            <option value="quiz">Quiz / Exam</option>
+            <option value="project">Project</option>
+        </select>
+        <input type="date" id="taskDeadline">
+        <button onclick="addTask()">+ Add Task</button>
+    </div>
+
+    <!-- Filter Buttons -->
+    <div class="filters">
+        <button class="active" onclick="setFilter('all', this)">All</button>
+        <button onclick="setFilter('todo', this)">To-Do</button>
+        <button onclick="setFilter('done', this)">Done</button>
+        <button onclick="setFilter('upcoming', this)">Upcoming (7 Days)</button>
+    </div>
+
+    <!-- Task List -->
+    <ul class="task-list" id="taskList"></ul>
+
+    <script>
+        // --- JAVASCRIPT LOGIC ---
+        let tasks = JSON.parse(localStorage.getItem('studentTasks')) || [];
+        let currentFilter = 'all';
+
+        // Save data to browser's local storage
+        function saveTasks() {
+            localStorage.setItem('studentTasks', JSON.stringify(tasks));
+        }
+
+        // Add a new task
+        function addTask() {
+            const title = document.getElementById('taskTitle').value;
+            const type = document.getElementById('taskType').value;
+            const deadline = document.getElementById('taskDeadline').value;
+
+            if (!title || !deadline) {
+                alert('Please enter a title and a deadline!');
+                return;
+            }
+
+            const newTask = {
+                id: Date.now(),
+                title,
+                type,
+                deadline,
+                status: 'todo'
+            };
+
+            tasks.push(newTask);
+            saveTasks();
+            renderTasks();
+            
+            // Clear the form
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDeadline').value = '';
+        }
+
+        // Toggle between To-Do and Done
+        function toggleStatus(id) {
+            const task = tasks.find(t => t.id === id);
+            task.status = task.status === 'todo' ? 'done' : 'todo';
+            saveTasks();
+            renderTasks();
+        }
+
+        // Delete a task
+        function deleteTask(id) {
+            if(confirm('Are you sure you want to delete this task?')) {
+                tasks = tasks.filter(t => t.id !== id);
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        // Change the active filter
+        function setFilter(filter, btn) {
+            currentFilter = filter;
+            document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderTasks();
+        }
+
+        // Render the list of tasks on the screen
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+
+            let filteredTasks = tasks;
+
+            // Apply filters
+            if (currentFilter === 'todo') {
+                filteredTasks = tasks.filter(t => t.status === 'todo');
+            } else if (currentFilter === 'done') {
+                filteredTasks = tasks.filter(t => t.status === 'done');
+            } else if (currentFilter === 'upcoming') {
+                filteredTasks = tasks.filter(t => {
+                    const d = new Date(t.deadline);
+                    return t.status === 'todo' && d >= today && d <= nextWeek;
+                });
+            }
+
+            // Sort tasks by deadline (earliest first)
+            filteredTasks.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
+            if (filteredTasks.length === 0) {
+                taskList.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">No tasks to show. Add one above!</p>';
+                return;
+            }
+
+            // Create HTML for each task
+            filteredTasks.forEach(task => {
+                const deadlineDate = new Date(task.deadline + 'T00:00:00'); // Prevent timezone offset issues
+                const isOverdue = deadlineDate < today && task.status === 'todo';
+                
+                const li = document.createElement('li');
+                li.className = `task-item ${task.status} ${isOverdue ? 'overdue' : ''}`;
+                
+                // Calculate days left
+                const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+                let deadlineText = `Deadline: ${task.deadline}`;
+                
+                if (task.status === 'todo') {
+                    if (daysLeft < 0) deadlineText += ` 🚨 (Overdue by ${Math.abs(daysLeft)} days)`;
+                    else if (daysLeft === 0) deadlineText += ' ⏳ (Due Today!)';
+                    else if (daysLeft === 1) deadlineText += ' ⏳ (Due Tomorrow)';
+                    else deadlineText += ` (${daysLeft} days left)`;
+                } else {
+                    deadlineText += ' ✅';
+                }
+
+                li.innerHTML = `
+                    <div class="task-info">
+                        <h3>${task.title} <span class="badge">${task.type}</span></h3>
+                        <p>${deadlineText}</p>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn-complete" onclick="toggleStatus(${task.id})">${task.status === 'todo' ? 'Mark Done' : 'Undo'}</button>
+                        <button class="btn-delete" onclick="deleteTask(${task.id})">Delete</button>
+                    </div>
+                `;
+                taskList.appendChild(li);
+            });
+        }
+
+        // Initial render when page loads
+        renderTasks();
+    </script>
+</body>
+</html>
